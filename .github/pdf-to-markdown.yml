@@ -1,0 +1,49 @@
+name: Auto Convert PDF to Markdown
+
+on:
+  push:
+    paths:
+      - '**.pdf'  # 只有PDF文件变动时触发
+
+jobs:
+  convert:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write  # 允许自动提交
+      
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install MarkItDown
+        run: |
+          pip install markitdown
+
+      - name: Convert PDFs to Markdown
+        run: |
+          # 查找所有PDF并转换
+          find . -name "*.pdf" -not -path "./.git/*" | while read pdf_file; do
+            md_file="${pdf_file%.pdf}.md"
+            echo "Converting: $pdf_file -> $md_file"
+            markitdown "$pdf_file" > "$md_file" || echo "Failed: $pdf_file"
+          done
+
+      - name: Commit and Push changes
+        run: |
+          git config --local user.email "github-actions[bot]@users.noreply.github.com"
+          git config --local user.name "github-actions[bot]"
+          
+          if [ -n "$(git status --porcelain)" ]; then
+            git add -A
+            git commit -m "🤖 Auto-convert PDF to Markdown [skip ci]"
+            git push
+          else
+            echo "No changes to commit"
+          fi
